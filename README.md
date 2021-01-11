@@ -1,5 +1,6 @@
 # Vertex-wise-triangle-counting
 Counting number of triangles that each node contributes to in large sparse matrices.
+For this algorithm we use large sparse matrices with in CSC or CSR format only!
 
 Function V3:
 The logic followed in function V3 is as follows. First we access the
