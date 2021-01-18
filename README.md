@@ -2,7 +2,8 @@
 Counting number of triangles that each node contributes to in large sparse matrices.
 For this algorithm we use large sparse matrices with in CSC or CSR format only!
 
-Function V3:
+~ Function V3 ~
+
 The logic followed in function V3 is as follows. First we access the
 nodes-rows (row_ptr table) and their corresponding column elements (col_index).
 For each possible col_index data pair of a given node, a search is started in the
@@ -15,7 +16,8 @@ access its col_index data. In case the second
 element of the pair is also located on the new line (line 1), there is a connection
 of nodes (0-1), (0-2), (1-2) therefore they participate in a triangle.
 
-Function V4:
+~ Function V4 ~
+
 The algorithm that implements V4 follows a similar logic to V3 with respect to
 accessing nodes, indirectly using array multiplication for
 finding the node contribution to existing triangles. This time we receive every
