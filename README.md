@@ -32,3 +32,10 @@ in order to significantly reduce complexity. The process continues for
 all neighbors of node zero, ending in the calculation of c3 [0, {1,2,3,4}]
 by summing the individual c3 [0, x] and repeating the same for all of them
 remaining nodes.
+
+
+~ Code Weaknesses ~
+
+none detected
+
+
