@@ -8,56 +8,54 @@
 
 struct timespec t_start, t_end;
 
-
-u_int32_t coo2csc(
-  u_int32_t       * const row,       /*!< CSC row start indices */
-  u_int32_t       * const col,       /*!< CSC column indices */
-  u_int32_t const * const row_coo,   /*!< COO row indices */
-  u_int32_t const * const col_coo,   /*!< COO column indices */
-  u_int32_t const         nnz,       /*!< Number of nonzero elements */
-  u_int32_t const         n,         /*!< Number of rows/columns */
-  u_int32_t const         isOneBased /*!< Whether COO is 0- or 1-based */
+int coo2csc(
+  int       ** const row,       /*!< CSC row start indices */
+  int       ** const col,       /*!< CSC column indices */
+  int const *  const row_coo,   /*!< COO row indices */
+  int const *  const col_coo,   /*!< COO column indices */
+  int const         nnz,       /*!< Number of nonzero elements */
+  int const         n,         /*!< Number of rows/columns */
+  int const         isOneBased /*!< Whether COO is 0- or 1-based */
 ) {
 
   // ----- cannot assume that input is already 0!
-    for(u_int32_t l = 0; l < n+1; l++) col[l] = 0;
+    for(int l = 0; l < n+1; l++) (*col)[l] = 0;
 
 
   // ----- find the correct column sizes
-    for(u_int32_t l = 0; l < nnz; l++)
-        col[col_coo[l] - isOneBased]++;
+    for(int l = 0; l < nnz; l++)
+        (*col)[col_coo[l] - isOneBased]++;
 
   // ----- cumulative sum
-    for(u_int32_t i = 0, cumsum = 0; i < n; i++) {
-        u_int32_t temp = col[i];
-        col[i] = cumsum;
+    for(int i = 0, cumsum = 0; i < n; i++) {
+        int temp = (*col)[i];
+        (*col)[i] = cumsum;
         cumsum += temp;
     }
-    col[n] = nnz;
+    (*col)[n] = nnz;
   // ----- copy the row indices to the correct place
-    for(u_int32_t l = 0; l < nnz; l++) {
-        u_int32_t col_l;
+    for(int l = 0; l < nnz; l++) {
+        int col_l;
         col_l = col_coo[l] - isOneBased;
 
-        u_int32_t dst = col[col_l];
-        row[dst] = row_coo[l] - isOneBased;
+        int dst = (*col)[col_l];
+        (*row)[dst] = row_coo[l] - isOneBased;
 
-        col[col_l]++;
+        (*col)[col_l]++;
     }
   // ----- revert the column pointers
-    for(u_int32_t i = 0, last = 0; i < n; i++) {
-        u_int32_t temp = col[i];
-        col[i] = last;
+    for(int i = 0, last = 0; i < n; i++) {
+        uint32_t temp = (*col)[i];
+        (*col)[i] = last;
         last = temp;
     }
 
-    return n;
+    return n+1;
 
 }
 
-
 /* Reads a MMfile */
-u_int32_t cooReader(char* name, u_int32_t* I, u_int32_t* J, u_int32_t* II, u_int32_t* JJ){
+int cooReader(char* name, int** CSCrows , int** CSCcols){
 
     int ret_code;
     MM_typecode matcode;
@@ -95,8 +93,8 @@ u_int32_t cooReader(char* name, u_int32_t* I, u_int32_t* J, u_int32_t* II, u_int
 
     /* reseve memory for matrices */
 
-    I = (int *) malloc(nz * sizeof(int));
-    J = (int *) malloc(nz * sizeof(int));
+    int *I = (int *) malloc(nz * sizeof(int));
+    int *J = (int *) malloc(nz * sizeof(int));
 
 
     /* NOTE: when reading in doubles, ANSI C requires the use of the "l"  */
@@ -105,7 +103,7 @@ u_int32_t cooReader(char* name, u_int32_t* I, u_int32_t* J, u_int32_t* II, u_int
 
     for (i=0; i<nz; i++)
     {
-        fscanf(f, "%d %d \n", &I[i], &J[i]);
+        if(fscanf(f, "%d %d \n", &I[i], &J[i]));
         I[i]--;  /* adjust from 1-based to 0-based */
         J[i]--;
     }
@@ -116,19 +114,21 @@ u_int32_t cooReader(char* name, u_int32_t* I, u_int32_t* J, u_int32_t* II, u_int
     /* now write out matrix */
     /************************/
 
-    mm_write_banner(stdout, matcode);
-    mm_write_mtx_crd_size(stdout, M, N, nz);
-   // for (i=0; i<nz; i++)
-      //  fprintf(stdout, "%d %d \n", I[i]+1, J[i]+1);
-
+    //mm_write_banner(stdout, matcode);
+    //mm_write_mtx_crd_size(stdout, M, N, nz);
+   
 	
-	//return converter(I,J,val,nz,nz,nz,II,JJ);
-	
-
-	printf("nzz=%d\n",nz);
-  	return coo2csc(II, JJ, I, J,nz, N,0);
+  *CSCrows = (int *) malloc(nz * sizeof(int));
+  *CSCcols = (int *) malloc((N + 1)   * sizeof(int));
+  
+  int CSC_rows = coo2csc(CSCrows, CSCcols, I, J,nz, N,0);
+  
+  printf("Graph: %s\n", name);
+	printf("nzz  : %d\nrows : %d\n\n",nz,CSC_rows);
+  free(I);
+  free(J);
+  return CSC_rows;
 }
-
 
 
 int* V4(int *row, int *col, int N){
@@ -137,7 +137,7 @@ int* V4(int *row, int *col, int N){
     int *c3 = (int *)calloc(N, sizeof(int));
 
     
-    clock_gettime(CLOCK_REALTIME, &t_start);
+    // clock_gettime(CLOCK_REALTIME, &t_start);
 
     int i = 0;
     int j = 0;
@@ -172,7 +172,7 @@ int* V4(int *row, int *col, int N){
             } 
         }
     }
-    clock_gettime(CLOCK_REALTIME, &t_end);
+    // clock_gettime(CLOCK_REALTIME, &t_end);
 
     for(int i=0; i<N; i++)
         tr += c3[i];
@@ -185,22 +185,12 @@ int* V4(int *row, int *col, int N){
 }
 
 
-int main(int argc, char* argv[]){
-    
-    char *str           = argv[1];
-    int combinationsNum = atoi(argv[2]);
-    int rowsNum         = atoi(argv[3]);
+int main(int argc, char** argv) {
+    char *str = argv[1];
+    int  *CSCrows;
+    int  *CSCcols;
 
-    u_int32_t *I;
-    u_int32_t *J;
+    int rowptrSize = cooReader(str,  &CSCrows, &CSCcols);
 
-    int *CSCrows = (int *) malloc(combinationsNum * sizeof(int));
-    int *CSCcols = (int *) malloc((rowsNum + 1)   * sizeof(int));
-
-    u_int32_t rowptrSize = cooReader(str, I, J, CSCrows, CSCcols);
-
-    printf("Graph: %s\n", str);
     V4(CSCcols, CSCrows, rowptrSize);
-
-    return 0;
 }
